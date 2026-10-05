@@ -11,38 +11,37 @@
   main { max-width:640px; margin:0 auto; padding:40px 20px 56px; }
   h1 { font-size:1.35rem; line-height:1.3; margin:0 0 .6rem; }
   p.note { color:var(--muted); font-size:.95rem; margin:0 0 2.4rem; }
-  .anchors { display:flex; justify-content:space-between; gap:16px; font-size:.9rem; color:var(--muted); margin-bottom:.4rem; }
-  .anchors span { max-width:46%; }
-  .anchors span:last-child { text-align:right; }
-  /* area sentuh tinggi, garis tipis di tengah */
-  #track { position:relative; height:56px; cursor:pointer; touch-action:none; }
-  #track::before { content:""; position:absolute; left:0; right:0; top:27px; height:2px; background:var(--line); }
-  #track::after, .cap { content:""; position:absolute; top:18px; width:2px; height:20px; background:var(--line); }
-  #track::after { right:0; }
-  .cap { left:0; }
-  #handle { position:absolute; top:12px; width:6px; height:32px; margin-left:-3px; background:var(--accent); border-radius:3px; display:none; }
-  #track:focus-visible { outline:3px solid var(--accent); outline-offset:4px; }
-  button { margin-top:2rem; font:inherit; padding:.7rem 1.6rem; border:0; border-radius:6px; background:var(--accent); color:#fff; cursor:pointer; }
-  button:disabled { background:#b9c5cc; cursor:not-allowed; }
   .field { margin-bottom:1.6rem; }
   .field > label, .field > .lbl { display:block; font-size:.95rem; margin-bottom:.4rem; }
   input[type=text] { width:100%; font:inherit; padding:.6rem .7rem; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--ink); }
-  input[type=text]:focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
   .opts { display:flex; gap:20px; }
   .opts label { display:flex; align-items:center; gap:.4rem; cursor:pointer; }
   hr { border:0; border-top:1px solid #dbe3e8; margin:2rem 0; }
+  .anchors { display:flex; justify-content:space-between; gap:16px; font-size:.9rem; color:var(--muted); margin-bottom:.4rem; }
+  .anchors span { max-width:46%; }
+  .anchors span:last-child { text-align:right; }
+  #track { position:relative; height:56px; cursor:pointer; touch-action:none; user-select:none; -webkit-user-select:none; }
+  #line { position:absolute; left:0; right:0; top:27px; height:2px; background:var(--line); pointer-events:none; }
+  .cap { position:absolute; top:18px; width:2px; height:20px; background:var(--line); pointer-events:none; }
+  #capL { left:0; } #capR { right:0; }
+  #handle { position:absolute; top:12px; width:8px; height:32px; margin-left:-4px; background:var(--accent); border-radius:4px; display:none; pointer-events:none; }
+  button { margin-top:2rem; font:inherit; padding:.7rem 1.6rem; border:0; border-radius:6px; background:var(--accent); color:#fff; cursor:pointer; }
+  button:disabled { background:#b9c5cc; cursor:not-allowed; }
   #msg { margin-top:1rem; color:var(--muted); font-size:.95rem; min-height:1.5em; }
+  #err { display:none; margin-bottom:1rem; padding:.6rem .8rem; background:#fde8e8; color:#8a1f1f; font:14px/1.4 monospace; border-radius:6px; }
 </style>
 </head>
 <body>
 <main>
+  <div id="err"></div>
+
   <div class="field">
     <label for="nama">Nama lengkap</label>
     <input type="text" id="nama" autocomplete="name">
   </div>
   <div class="field">
-    <span class="lbl" id="lbl-angkatan">Angkatan</span>
-    <div class="opts" role="radiogroup" aria-labelledby="lbl-angkatan">
+    <span class="lbl">Angkatan</span>
+    <div class="opts">
       <label><input type="radio" name="angkatan" value="2024"> 2024</label>
       <label><input type="radio" name="angkatan" value="2025"> 2025</label>
       <label><input type="radio" name="angkatan" value="2026"> 2026</label>
@@ -50,89 +49,105 @@
   </div>
   <hr>
 
-  <h1>Seberapa besar tingkat stres yang Anda rasakan selama periode ujian?</h1>
+  <h1 id="pertanyaan">Seberapa besar tingkat stres yang Anda rasakan selama periode ujian?</h1>
   <p class="note">Sentuh atau klik pada garis di bawah pada posisi yang paling menggambarkan kondisi Anda. Anda bisa menggeser tanda untuk mengubah posisinya.</p>
 
   <div class="anchors"><span>Tidak stres sama sekali</span><span>Stres paling berat yang pernah saya rasakan</span></div>
-  <div id="track" role="slider" tabindex="0" aria-label="Tingkat stres, dari tidak stres sampai sangat berat" aria-valuemin="0" aria-valuemax="100">
-    <div class="cap"></div>
+  <div id="track">
+    <div id="line"></div>
+    <div class="cap" id="capL"></div>
+    <div class="cap" id="capR"></div>
     <div id="handle"></div>
   </div>
 
   <button id="send" disabled>Kirim jawaban</button>
-  <div id="msg" role="status"></div>
+  <div id="msg"></div>
 </main>
 
 <script>
-// ====== PENGATURAN ======
-const ENDPOINT = "https://script.google.com/macros/s/AKfycbwtNxpesjFIG9W4VZBl98FQ4gEQmxzeJz65K24gxO9VCDGYKyByObvY2QNhkNh-KbVKwg/exec
-";
-// ID responden diambil dari URL, contoh: ...evas-stres.html?id=R001
-// ========================
+// ==== SATU-SATUNYA BARIS YANG PERLU DIUBAH ====
+var ENDPOINT = "https://script.google.com/macros/s/AKfycbzJ45-zCxF-s9KeCzUok2MMCRTJbcFVyLKi88KTMEznd6qryWrIJ7OWweziEAQW8FLzcQ/exec";
+// ===============================================
 
-const track = document.getElementById("track");
-const handle = document.getElementById("handle");
-const send = document.getElementById("send");
-const msg = document.getElementById("msg");
-const params = new URLSearchParams(location.search);
-let value = null;   // 0-100, disimpan tapi tidak pernah ditampilkan
-let dragging = false;
+window.onerror = function (m, src, line) {
+  var e = document.getElementById("err");
+  e.style.display = "block";
+  e.textContent = "Error: " + m + " (baris " + line + ")";
+};
 
+var params = new URLSearchParams(location.search);
+var periode = params.get("periode") === "sesudah" ? "sesudah" : "sebelum";
+if (periode === "sesudah") {
+  document.getElementById("pertanyaan").textContent =
+    "Seberapa besar tingkat stres yang Anda rasakan saat ini, setelah ujian selesai?";
+}
+
+var track = document.getElementById("track");
+var handle = document.getElementById("handle");
+var send = document.getElementById("send");
+var msg = document.getElementById("msg");
+var namaEl = document.getElementById("nama");
+var value = null;   // 0-100, disimpan tapi tidak pernah ditampilkan
+var dragging = false;
+
+function angkatan() {
+  var r = document.querySelector('input[name="angkatan"]:checked');
+  return r ? r.value : "";
+}
+function updateSend() {
+  send.disabled = !(value !== null && namaEl.value.trim() && angkatan());
+}
 function setFrom(clientX) {
-  const r = track.getBoundingClientRect();
-  const p = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
-  value = Math.round(p * 1000) / 10;           // resolusi 0,1
+  var r = track.getBoundingClientRect();
+  var p = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+  value = Math.round(p * 1000) / 10;      // resolusi 0,1
   handle.style.display = "block";
   handle.style.left = (p * 100) + "%";
-  track.setAttribute("aria-valuenow", Math.round(value));
   updateSend();
 }
 
-const namaEl = document.getElementById("nama");
-const angkatanEl = () => document.querySelector('input[name="angkatan"]:checked');
-function updateSend() {
-  send.disabled = !(value !== null && namaEl.value.trim() && angkatanEl());
-}
-namaEl.addEventListener("input", updateSend);
-document.querySelectorAll('input[name="angkatan"]').forEach(r => r.addEventListener("change", updateSend));
-
-track.addEventListener("pointerdown", e => { dragging = true; track.setPointerCapture(e.pointerId); setFrom(e.clientX); });
-track.addEventListener("pointermove", e => { if (dragging) setFrom(e.clientX); });
-track.addEventListener("pointerup",   () => dragging = false);
-track.addEventListener("pointercancel", () => dragging = false);
-
-// akses keyboard: panah kiri/kanan
-track.addEventListener("keydown", e => {
-  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-  e.preventDefault();
-  const r = track.getBoundingClientRect();
-  const cur = value === null ? 50 : value;
-  const next = Math.min(100, Math.max(0, cur + (e.key === "ArrowRight" ? 1 : -1)));
-  setFrom(r.left + (next / 100) * r.width);
+track.addEventListener("pointerdown", function (e) {
+  dragging = true;
+  try { track.setPointerCapture(e.pointerId); } catch (x) {}
+  setFrom(e.clientX);
 });
+track.addEventListener("pointermove", function (e) { if (dragging) setFrom(e.clientX); });
+track.addEventListener("pointerup", function () { dragging = false; });
+track.addEventListener("pointercancel", function () { dragging = false; });
 
-send.addEventListener("click", async () => {
+namaEl.addEventListener("input", updateSend);
+var radios = document.querySelectorAll('input[name="angkatan"]');
+for (var i = 0; i < radios.length; i++) radios[i].addEventListener("change", updateSend);
+
+send.addEventListener("click", function () {
   if (value === null) return;
+  if (ENDPOINT.indexOf("https://") !== 0) {
+    msg.textContent = "URL web app belum diisi di file (baris ENDPOINT).";
+    return;
+  }
   send.disabled = true;
   msg.textContent = "Mengirim...";
-  const payload = {
+  var payload = {
     id: params.get("id") || "",
+    periode: periode,
     nama: namaEl.value.trim(),
-    angkatan: angkatanEl().value,
+    angkatan: angkatan(),
     vas_stres: value,
     waktu: new Date().toISOString(),
     lebar_layar: window.innerWidth,
     perangkat: /Mobi|Android/i.test(navigator.userAgent) ? "HP" : "Laptop/PC"
   };
-  try {
-    await fetch(ENDPOINT, { method: "POST", mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
+  fetch(ENDPOINT, {
+    method: "POST", mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload)
+  }).then(function () {
     msg.textContent = "Terima kasih, jawaban Anda sudah terkirim.";
     track.style.pointerEvents = "none";
-  } catch (err) {
+  }).catch(function () {
     msg.textContent = "Pengiriman gagal. Periksa koneksi lalu klik Kirim jawaban lagi.";
     updateSend();
-  }
+  });
 });
 </script>
 </body>
